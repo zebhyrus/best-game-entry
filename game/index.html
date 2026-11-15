@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lumen Moth — defend the neon reef</title>
+<link rel="icon" href="data:,">
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #020d14;
+    height: 100%;
+    overflow: hidden;
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  }
+  #wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    width: 100vw;
+  }
+  canvas {
+    display: block;
+    max-width: 100vw;
+    max-height: 100vh;
+    width: auto;
+    height: auto;
+    background: #04141f;
+    cursor: crosshair;
+    box-shadow: 0 0 60px rgba(111, 247, 255, 0.12);
+  }
+  #hint {
+    display: none;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="reef" width="1280" height="800"></canvas>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
