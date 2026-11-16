@@ -22,7 +22,7 @@ export const PLAYER = {
   radius: 15,
   speed: 285,
   maxHp: 100,
-  fireInterval: 0.16,
+  fireInterval: 0.32,
   bulletSpeed: 640,
   bulletDamage: 13,
   bulletRadius: 5,

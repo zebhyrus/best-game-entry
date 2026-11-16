@@ -166,8 +166,14 @@ export class Game {
     this.comboTimer -= dt;
     if (this.comboTimer <= 0) this.combo = 0;
 
-    // Aim at the mouse.
-    p.aimAngle = Math.atan2(inp.mouseY - p.y, inp.mouseX - p.x);
+    // Auto-aim: face the nearest thorn. When the reef is empty,
+    // fall back to the pointer so the moth still faces somewhere.
+    const target = this.nearestEnemy(p.x, p.y, null, Infinity);
+    if (target) {
+      p.aimAngle = Math.atan2(target.y - p.y, target.x - p.x);
+    } else {
+      p.aimAngle = Math.atan2(inp.mouseY - p.y, inp.mouseX - p.x);
+    }
 
     // Movement: keyboard, or the touch joystick.
     let mx = (inp.down('d', 'arrowright') ? 1 : 0) - (inp.down('a', 'arrowleft') ? 1 : 0);

@@ -314,8 +314,8 @@ export function drawHud(ctx, s) {
   ctx.font = '14px "Trebuchet MS", sans-serif';
   ctx.fillText(
     s.input.touchMode
-      ? 'Auto-fire · Left thumb — move · Right thumb — aim'
-      : 'Auto-fire · WASD move · mouse aim · SPACE dash · P pause · M mute',
+      ? 'Auto-fire + auto-aim · Left thumb — move'
+      : 'Auto-fire + auto-aim · WASD move · SPACE dash · P pause · M mute',
     VIEW.width / 2, VIEW.height - 14,
   );
   if (s.input.touchMode) drawTouchControls(ctx, s);
@@ -403,11 +403,11 @@ export function drawTitle(ctx, time, best, touch = false) {
   ctx.fillStyle = PALETTE.dim;
   ctx.font = '17px "Trebuchet MS", sans-serif';
   if (touch) {
-    ctx.fillText('Left thumb — move      Right thumb — aim', VIEW.width / 2, 448);
-    ctx.fillText('Bolts fire on their own      DASH button — dash      II — pause', VIEW.width / 2, 476);
+    ctx.fillText('Left thumb — move', VIEW.width / 2, 448);
+    ctx.fillText('Bolts fire and aim on their own      DASH button — dash      II — pause', VIEW.width / 2, 476);
   } else {
-    ctx.fillText('WASD / arrows — move      Mouse — aim', VIEW.width / 2, 448);
-    ctx.fillText('Bolts fire on their own      SPACE — dash      P — pause      M — mute', VIEW.width / 2, 476);
+    ctx.fillText('WASD / arrows — move', VIEW.width / 2, 448);
+    ctx.fillText('Bolts fire and aim on their own      SPACE — dash      P — pause      M — mute', VIEW.width / 2, 476);
   }
   ctx.fillText('Survive the waves. A Thorn Monarch rises every 5th wave.', VIEW.width / 2, 504);
   const pulse = 0.6 + 0.4 * Math.sin(time * 3);
