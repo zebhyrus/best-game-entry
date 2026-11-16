@@ -187,6 +187,9 @@ export const UPGRADES = [
     apply: (p) => { p.thorns += 15; },
   },
   {
+    // One-time: the only upgrade that cannot stack. Once owned it
+    // leaves the draft deck (see WaveDirector.draftUpgrades); a
+    // second take would only fall back to a small heal.
     id: 'revive',
     name: 'SECOND WIND',
     desc: 'Once per run, cheat death and rise with 50 health.',

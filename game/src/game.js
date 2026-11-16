@@ -188,7 +188,7 @@ export class Game {
     this.upgradeCause = waveCleared ? 'wave' : 'boss';
     this.upgradeTitle = 'BOSS SLAIN — CHOOSE YOUR REWARD';
     this.bossRewardActive = true;
-    this.director.draftUpgrades();
+    this.director.draftUpgrades(this.player);
     this.state = 'upgrade';
   }
 
@@ -574,7 +574,7 @@ export class Game {
           p.xpNeed = 5 + (p.level - 1) * 3;
           this.upgradeCause = 'level';
           this.upgradeTitle = 'LEVEL UP — CHOOSE A GLOW';
-          this.director.draftUpgrades();
+          this.director.draftUpgrades(this.player);
           this.state = 'upgrade';
           this.sound.waveClear();
         }
@@ -588,7 +588,7 @@ export class Game {
       this.wave += 1;
       this.upgradeCause = 'wave';
       this.upgradeTitle = 'WAVE CLEARED — CHOOSE A GLOW';
-      this.director.draftUpgrades();
+      this.director.draftUpgrades(this.player);
       this.state = 'upgrade';
       this.fx.addRing(p.x, p.y, PALETTE.gold, 300, 0.8, 5);
       this.fx.addFlash('rgba(255, 215, 106, 0.16)', 0.5, 0.16);
@@ -811,7 +811,7 @@ export class Game {
       if (shot === 'upgrade') {
         this.enemies = [];
         this.bolts = [];
-        this.director.draftUpgrades();
+        this.director.draftUpgrades(this.player);
         this.state = 'upgrade';
         return;
       }

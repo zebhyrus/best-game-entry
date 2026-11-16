@@ -23,6 +23,18 @@ export class WaveDirector {
     this.draft = [];
     this.spawned = 0;
     this.eliteAt = new Set([0]);
+    // Upgrade deck: a shuffled queue of upgrade ids, dealt 3 at a
+    // time. When fewer than 3 remain it is refilled from the full set
+    // (minus the 3 just dealt), so no skill repeats in two drafts
+    // running and every skill comes up at least once per cycle.
+    this.deck = [];
+    this.lastDealt = [];
+    // Draft index at which each upgrade id was last offered (-1 =
+    // never). The refill puts the longest-unseen skills first, which
+    // bounds the gap between two offerings of any skill at ~9 drafts.
+    this.lastOffered = {};
+    for (const u of UPGRADES) this.lastOffered[u.id] = -1;
+    this.draftCount = 0;
   }
 
   isBossWave(n) {
@@ -82,9 +94,40 @@ export class WaveDirector {
     }
   }
 
-  draftUpgrades() {
-    const pool = shuffle(this.rng, UPGRADES);
-    this.draft = pool.slice(0, 3);
+  // Deck-based drafting: deal 3 from the shuffled deck; refill from
+  // the full set (minus the 3 just dealt) when fewer than 3 remain.
+  // Every draft is 3 distinct skills, no skill repeats in two
+  // consecutive drafts, and every eligible skill is offered at least
+  // once per cycle. All randomness comes from the director's seeded
+  // RNG, so replays stay deterministic.
+  //
+  // One-time audit (config.js): SECOND WIND ('revive') is the only
+  // upgrade that cannot stack — its "cheat death once" is spent the
+  // moment it triggers, and a second take only falls back to a small
+  // heal. Once the moth owns it, it leaves the deck for good. The
+  // other 24 all stack on repeat takes (more bolts, faster fire,
+  // higher stacks, wider arcs), so they stay eligible forever.
+  draftUpgrades(player) {
+    const owned = new Set();
+    if (player && player.revive) owned.add('revive');
+    // A skill owned since the last draft may still sit in the deck;
+    // drop it so it can never be dealt again this run.
+    if (owned.size > 0) this.deck = this.deck.filter((id) => !owned.has(id));
+    if (this.deck.length < 3) {
+      const pool = shuffle(this.rng, UPGRADES
+        .map((u) => u.id)
+        .filter((id) => !owned.has(id) && !this.deck.includes(id) && !this.lastDealt.includes(id)));
+      // Shuffled first so equally-stale skills stay in random order,
+      // then stalest-first: the longest-unseen skills are dealt first.
+      pool.sort((a, b) => this.lastOffered[a] - this.lastOffered[b]);
+      this.deck = this.deck.concat(pool);
+    }
+    const dealt = this.deck.splice(0, 3);
+    for (const id of dealt) this.lastOffered[id] = this.draftCount;
+    this.lastDealt = dealt;
+    this.draftCount += 1;
+    const byId = new Map(UPGRADES.map((u) => [u.id, u]));
+    this.draft = dealt.map((id) => byId.get(id));
     return this.draft;
   }
 
