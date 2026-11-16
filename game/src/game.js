@@ -48,6 +48,7 @@ export class Game {
     this.staged = null;
 
     canvas.addEventListener('mousedown', () => this.sound.unlock());
+    canvas.addEventListener('touchstart', () => this.sound.unlock());
     window.addEventListener('keydown', () => this.sound.unlock());
     this.loop = this.loop.bind(this);
   }
@@ -168,9 +169,12 @@ export class Game {
     // Aim at the mouse.
     p.aimAngle = Math.atan2(inp.mouseY - p.y, inp.mouseX - p.x);
 
-    // Movement.
+    // Movement: keyboard, or the touch joystick.
     let mx = (inp.down('d', 'arrowright') ? 1 : 0) - (inp.down('a', 'arrowleft') ? 1 : 0);
     let my = (inp.down('s', 'arrowdown') ? 1 : 0) - (inp.down('w', 'arrowup') ? 1 : 0);
+    const vec = inp.moveVec();
+    mx += vec.x;
+    my += vec.y;
     const mag = Math.hypot(mx, my) || 1;
     mx /= mag;
     my /= mag;
@@ -320,6 +324,7 @@ export class Game {
     this.last = now;
     this.time += dt;
     const inp = this.input;
+    inp.uiMode = this.state !== 'play';
 
     if (inp.wasPressed('m')) this.sound.toggleMute();
 
@@ -397,15 +402,15 @@ export class Game {
     }
     ctx.restore();
 
-    if (this.state === 'title') drawTitle(ctx, this.time, this.best);
+    if (this.state === 'title') drawTitle(ctx, this.time, this.best, this.input.touchMode);
     else if (this.state === 'play' || this.state === 'pause') {
       drawHud(ctx, this);
-      if (this.state === 'pause') drawPause(ctx);
+      if (this.state === 'pause') drawPause(ctx, this.input.touchMode);
     } else if (this.state === 'upgrade') {
       drawHud(ctx, this);
-      drawUpgrade(ctx, this.director.draft);
+      drawUpgrade(ctx, this.director.draft, this.input.touchMode);
     } else if (this.state === 'over') {
-      drawGameOver(ctx, this);
+      drawGameOver(ctx, this, this.input.touchMode);
     }
   }
 

@@ -10,3 +10,6 @@ canvas.height = VIEW.height;
 
 const game = new Game(canvas);
 game.run();
+
+// Debug handle for automated checks (state, player, input).
+window.__lumen = game;

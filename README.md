@@ -13,7 +13,7 @@ python3 -m http.server --directory game 8080
 # open http://localhost:8080 in desktop Chrome
 ```
 
-WASD / arrows to move, mouse to aim, hold click to shoot, SPACE to dash, P to pause, M to mute. Survive the waves — a Thorn Monarch rises every 5th wave.
+WASD / arrows to move, mouse to aim, hold click to shoot, SPACE to dash, P to pause, M to mute. Survive the waves — a Thorn Monarch rises every 5th wave. On touch screens: left thumb is a joystick to move, right thumb aims and holds to shoot, with on-screen DASH and pause buttons.
 
 ---
 

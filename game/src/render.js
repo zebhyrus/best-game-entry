@@ -2,6 +2,7 @@
 // the HUD and every menu screen. Nothing here changes game state.
 
 import { VIEW, PALETTE } from './config.js';
+import { DASH_BTN, PAUSE_BTN } from './input.js';
 import { makeRng, range } from './rng.js';
 
 export class Reef {
@@ -304,13 +305,69 @@ export function drawHud(ctx, s) {
   ctx.fillRect(VIEW.width - 222, 76, 200, 7);
   ctx.fillStyle = dashFrac >= 1 ? PALETTE.magenta : 'rgba(255,111,216,0.5)';
   ctx.fillRect(VIEW.width - 222, 76, 200 * dashFrac, 7);
-  ctx.fillText(dashFrac >= 1 ? 'DASH READY  [SPACE]' : 'dash recharging…', VIEW.width - 22, 98);
+  ctx.fillText(dashFrac >= 1 ? (s.input.touchMode ? 'DASH READY' : 'DASH READY  [SPACE]') : 'dash recharging…', VIEW.width - 22, 98);
   // Bottom hint.
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(127, 184, 196, 0.8)';
   ctx.font = '14px "Trebuchet MS", sans-serif';
-  ctx.fillText('WASD move · mouse aim · hold click to shoot · SPACE dash · P pause · M mute', VIEW.width / 2, VIEW.height - 14);
+  ctx.fillText(
+    s.input.touchMode
+      ? 'Left thumb — move · Right thumb — aim & hold to shoot'
+      : 'WASD move · mouse aim · hold click to shoot · SPACE dash · P pause · M mute',
+    VIEW.width / 2, VIEW.height - 14,
+  );
+  if (s.input.touchMode) drawTouchControls(ctx, s);
   ctx.restore();
+}
+
+function drawTouchControls(ctx, s) {
+  const inp = s.input;
+  // Floating joystick: base where the thumb landed, knob where it is.
+  const m = inp.moveTouch;
+  if (m) {
+    const dx = m.x - m.ox;
+    const dy = m.y - m.oy;
+    const mag = Math.hypot(dx, dy) || 1;
+    const cl = Math.min(mag, 70);
+    const kx = m.ox + (dx / mag) * cl;
+    const ky = m.oy + (dy / mag) * cl;
+    ctx.fillStyle = 'rgba(111, 247, 255, 0.10)';
+    ctx.beginPath();
+    ctx.arc(m.ox, m.oy, 70, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(111, 247, 255, 0.45)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(111, 247, 255, 0.55)';
+    ctx.beginPath();
+    ctx.arc(kx, ky, 30, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Dash button, bottom-right.
+  const p = s.player;
+  const ready = p.dashRecharge <= 0;
+  ctx.fillStyle = ready ? 'rgba(255, 111, 216, 0.35)' : 'rgba(255, 111, 216, 0.12)';
+  ctx.beginPath();
+  ctx.arc(DASH_BTN.x, DASH_BTN.y, DASH_BTN.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = ready ? PALETTE.magenta : 'rgba(255,111,216,0.4)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = ready ? PALETTE.white : 'rgba(255,255,255,0.45)';
+  ctx.font = 'bold 19px "Trebuchet MS", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('DASH', DASH_BTN.x, DASH_BTN.y + 7);
+  // Pause button, top-right.
+  ctx.fillStyle = 'rgba(3, 22, 32, 0.6)';
+  ctx.beginPath();
+  ctx.arc(PAUSE_BTN.x, PAUSE_BTN.y, PAUSE_BTN.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(111, 247, 255, 0.5)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = PALETTE.white;
+  ctx.font = 'bold 16px "Trebuchet MS", sans-serif';
+  ctx.fillText('II', PAUSE_BTN.x, PAUSE_BTN.y + 6);
 }
 
 function panel(ctx, x, y, w, h) {
@@ -323,7 +380,7 @@ function panel(ctx, x, y, w, h) {
   ctx.stroke();
 }
 
-export function drawTitle(ctx, time, best) {
+export function drawTitle(ctx, time, best, touch = false) {
   ctx.save();
   ctx.fillStyle = 'rgba(2, 12, 18, 0.45)';
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
@@ -343,14 +400,19 @@ export function drawTitle(ctx, time, best) {
   ctx.fillText('Shoot them down, gather light motes, and choose your glow.', VIEW.width / 2, 378);
   ctx.fillStyle = PALETTE.dim;
   ctx.font = '17px "Trebuchet MS", sans-serif';
-  ctx.fillText('WASD / arrows — move      Mouse — aim      Hold click — shoot', VIEW.width / 2, 448);
-  ctx.fillText('SPACE — dash through danger      P — pause      M — mute', VIEW.width / 2, 476);
+  if (touch) {
+    ctx.fillText('Left thumb — move      Right thumb — aim & hold to shoot', VIEW.width / 2, 448);
+    ctx.fillText('DASH button — dash through danger      II — pause', VIEW.width / 2, 476);
+  } else {
+    ctx.fillText('WASD / arrows — move      Mouse — aim      Hold click — shoot', VIEW.width / 2, 448);
+    ctx.fillText('SPACE — dash through danger      P — pause      M — mute', VIEW.width / 2, 476);
+  }
   ctx.fillText('Survive the waves. A Thorn Monarch rises every 5th wave.', VIEW.width / 2, 504);
   const pulse = 0.6 + 0.4 * Math.sin(time * 3);
   ctx.globalAlpha = pulse;
   ctx.fillStyle = PALETTE.cyan;
   ctx.font = 'bold 26px "Trebuchet MS", sans-serif';
-  ctx.fillText('CLICK OR PRESS ENTER TO START', VIEW.width / 2, 590);
+  ctx.fillText(touch ? 'TAP TO START' : 'CLICK OR PRESS ENTER TO START', VIEW.width / 2, 590);
   ctx.globalAlpha = 1;
   if (best > 0) {
     ctx.fillStyle = PALETTE.gold;
@@ -360,7 +422,7 @@ export function drawTitle(ctx, time, best) {
   ctx.restore();
 }
 
-export function drawUpgrade(ctx, draft) {
+export function drawUpgrade(ctx, draft, touch = false) {
   ctx.save();
   ctx.fillStyle = 'rgba(2, 12, 18, 0.6)';
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
@@ -370,7 +432,7 @@ export function drawUpgrade(ctx, draft) {
   ctx.fillText('WAVE CLEARED — CHOOSE A GLOW', VIEW.width / 2, 170);
   ctx.fillStyle = PALETTE.dim;
   ctx.font = '18px "Trebuchet MS", sans-serif';
-  ctx.fillText('Press 1, 2 or 3 — or click a card', VIEW.width / 2, 204);
+  ctx.fillText(touch ? 'Tap a card to choose' : 'Press 1, 2 or 3 — or click a card', VIEW.width / 2, 204);
   const w = 300;
   const h = 210;
   const gap = 36;
@@ -410,7 +472,7 @@ function wrapText(ctx, text, cx, y, maxW, lineH) {
   if (line) ctx.fillText(line, cx, yy);
 }
 
-export function drawPause(ctx) {
+export function drawPause(ctx, touch = false) {
   ctx.save();
   ctx.fillStyle = 'rgba(2, 12, 18, 0.65)';
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
@@ -420,11 +482,11 @@ export function drawPause(ctx) {
   ctx.fillText('PAUSED', VIEW.width / 2, VIEW.height / 2 - 10);
   ctx.fillStyle = PALETTE.dim;
   ctx.font = '20px "Trebuchet MS", sans-serif';
-  ctx.fillText('Press P to keep flying', VIEW.width / 2, VIEW.height / 2 + 34);
+  ctx.fillText(touch ? 'Tap the II button to keep flying' : 'Press P to keep flying', VIEW.width / 2, VIEW.height / 2 + 34);
   ctx.restore();
 }
 
-export function drawGameOver(ctx, s) {
+export function drawGameOver(ctx, s, touch = false) {
   ctx.save();
   ctx.fillStyle = 'rgba(20, 2, 8, 0.72)';
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
@@ -454,7 +516,7 @@ export function drawGameOver(ctx, s) {
   ctx.globalAlpha = pulse;
   ctx.fillStyle = PALETTE.cyan;
   ctx.font = 'bold 26px "Trebuchet MS", sans-serif';
-  ctx.fillText('PRESS R OR CLICK TO FLY AGAIN', VIEW.width / 2, 520);
+  ctx.fillText(touch ? 'TAP TO FLY AGAIN' : 'PRESS R OR CLICK TO FLY AGAIN', VIEW.width / 2, 520);
   ctx.globalAlpha = 1;
   ctx.restore();
 }

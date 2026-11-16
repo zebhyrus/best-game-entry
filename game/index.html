@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Lumen Moth — defend the neon reef</title>
 <link rel="icon" href="data:,">
 <style>
@@ -12,6 +12,7 @@
     background: #020d14;
     height: 100%;
     overflow: hidden;
+    overscroll-behavior: none;
     font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   }
   #wrap {
@@ -29,6 +30,9 @@
     height: auto;
     background: #04141f;
     cursor: crosshair;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
     box-shadow: 0 0 60px rgba(111, 247, 255, 0.12);
   }
   #hint {
