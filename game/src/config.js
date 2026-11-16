@@ -103,16 +103,22 @@ export const UPGRADES = [
     apply: (p) => { p.bounce += 1; },
   },
   {
-    id: 'nova',
-    name: 'CORAL NOVA',
-    desc: 'Every few seconds a ring of bolts bursts out in all directions.',
-    apply: (p) => { p.nova = p.nova ? p.nova + 4 : 10; p.novaTimer = Math.min(p.novaTimer, 1.5); },
+    id: 'storm',
+    name: 'STORM CALL',
+    desc: 'Every 3 seconds, lightning zaps the nearest thorns.',
+    apply: (p) => { p.storm = p.storm ? p.storm + 1 : 2; p.stormTimer = Math.min(p.stormTimer, 1); },
+  },
+  {
+    id: 'frost',
+    name: 'FROST NOVA',
+    desc: 'Every few seconds, a freezing wave slows nearby thorns.',
+    apply: (p) => { p.frost += 1; p.frostTimer = Math.min(p.frostTimer, 1); },
   },
 ];
 
 export const WAVES = {
-  baseCount: 5,
-  perWave: 3,
-  spawnGap: 0.85,
+  baseCount: 10,
+  perWave: 4,
+  spawnGap: 0.6,
   bossEvery: 5,
 };

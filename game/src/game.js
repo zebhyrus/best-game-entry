@@ -4,13 +4,13 @@
 
 import { VIEW, PALETTE, PLAYER, ENEMY_TYPES } from './config.js';
 import { makeRng } from './rng.js';
-import { Moth, Bolt, Thorn, ThornShot, Spark, Mote, FloatText } from './entities.js';
+import { Moth, Bolt, Thorn, ThornShot, Spark, Mote, XpGem, FloatText } from './entities.js';
 import { WaveDirector } from './waves.js';
 import { SoundEngine } from './audio.js';
 import { Input } from './input.js';
 import {
   Reef, drawMoth, drawThorn, drawBolt, drawThornShot, drawSpark,
-  drawMote, drawFloatText, drawHud, drawTitle, drawUpgrade,
+  drawMote, drawXpGem, drawFloatText, drawHud, drawTitle, drawUpgrade,
   drawPause, drawGameOver,
 } from './render.js';
 
@@ -33,12 +33,15 @@ export class Game {
     this.enemyShots = [];
     this.sparks = [];
     this.motes = [];
+    this.xpGems = [];
     this.floats = [];
     this.score = 0;
     this.kills = 0;
     this.combo = 0;
     this.comboTimer = 0;
     this.wave = 0;
+    this.elapsed = 0; // survival timer, Magic Survival-style
+    this.upgradeCause = 'wave'; // 'wave' or 'level'
     this.shake = 0;
     this.best = 0;
     try {
@@ -71,7 +74,10 @@ export class Game {
     this.enemyShots = [];
     this.sparks = [];
     this.motes = [];
+    this.xpGems = [];
     this.floats = [];
+    this.elapsed = 0;
+    this.upgradeCause = 'wave';
     this.player = new Moth(VIEW.width / 2, VIEW.height / 2);
     this.director = new WaveDirector(makeRng((Math.random() * 1e9) | 0));
     this.wave = 1;
@@ -118,6 +124,13 @@ export class Game {
     if (Math.random() < (e.isBoss ? 1 : 0.22)) {
       this.motes.push(new Mote(e.x, e.y, 50, e.isBoss ? 10 : 4));
     }
+    // Every kill drops XP, Magic Survival-style. Bosses drop a burst.
+    this.xpGems.push(new XpGem(e.x, e.y, 1));
+    if (e.isBoss) {
+      for (let i = 0; i < 4; i++) {
+        this.xpGems.push(new XpGem(e.x + (Math.random() - 0.5) * 100, e.y + (Math.random() - 0.5) * 100, 1));
+      }
+    }
     this.enemies.splice(index, 1);
   }
 
@@ -159,6 +172,7 @@ export class Game {
   updatePlay(dt) {
     const p = this.player;
     const inp = this.input;
+    this.elapsed += dt;
     p.wingPhase += dt;
     p.invuln = Math.max(0, p.invuln - dt);
     p.dashRecharge = Math.max(0, p.dashRecharge - dt);
@@ -221,6 +235,29 @@ export class Game {
           this.bolts.push(new Bolt(p.x, p.y, a, p.bulletSpeed, p.bulletDamage, 0));
         }
         this.sound.shoot();
+      }
+    }
+
+    // Storm call: lightning zaps the nearest thorns, on a timer.
+    if (p.storm > 0) {
+      p.stormTimer -= dt;
+      if (p.stormTimer <= 0) {
+        p.stormTimer = 3;
+        this.stormStrike();
+      }
+    }
+
+    // Frost nova: a freezing wave slows nearby thorns.
+    if (p.frost > 0) {
+      p.frostTimer -= dt;
+      if (p.frostTimer <= 0) {
+        p.frostTimer = Math.max(3, 6 - (p.frost - 1));
+        const radius = 240 + 40 * p.frost;
+        for (const e of this.enemies) {
+          if (Math.hypot(e.x - p.x, e.y - p.y) < radius) e.slowTimer = 2;
+        }
+        this.burst(p.x, p.y, PALETTE.softCyan, 24, 320);
+        this.sound.hit();
       }
     }
 
@@ -335,13 +372,54 @@ export class Game {
       }
     }
 
+    // XP gems: magnetized, collected, level up mid-wave.
+    for (let i = this.xpGems.length - 1; i >= 0; i--) {
+      const m = this.xpGems[i];
+      m.update(dt, p.x, p.y, p.pickupRadius);
+      if (m.dead) { this.xpGems.splice(i, 1); continue; }
+      if (Math.hypot(m.x - p.x, m.y - p.y) < m.radius + p.radius) {
+        p.xp += m.value;
+        this.xpGems.splice(i, 1);
+        this.sound.pickup();
+        // One level-up draft per frame; leftover XP banks for the next gem.
+        if (p.xp >= p.xpNeed && this.state === 'play') {
+          p.xp -= p.xpNeed;
+          p.level += 1;
+          p.xpNeed = 5 + (p.level - 1) * 3;
+          this.upgradeCause = 'level';
+          this.director.draftUpgrades();
+          this.state = 'upgrade';
+          this.sound.waveClear();
+        }
+      }
+    }
+
     // Wave cleared?
     if (this.director.remaining === 0 && this.enemies.length === 0) {
       this.wave += 1;
+      this.upgradeCause = 'wave';
       this.director.draftUpgrades();
       this.state = 'upgrade';
       this.sound.waveClear();
     }
+  }
+
+  stormStrike() {
+    const p = this.player;
+    const targets = [...this.enemies]
+      .sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))
+      .slice(0, p.storm);
+    for (const e of targets) {
+      e.hp -= 30;
+      e.flash = 1;
+      this.burst(e.x, e.y, PALETTE.violet, 10, 220);
+      this.floats.push(new FloatText(e.x, e.y - e.radius - 6, '30', PALETTE.violet));
+      if (e.hp <= 0) {
+        const idx = this.enemies.indexOf(e);
+        if (idx >= 0) this.killEnemy(e, idx);
+      }
+    }
+    if (targets.length > 0) this.sound.hit();
   }
 
   nearestEnemy(x, y, exclude, maxDist) {
@@ -387,7 +465,9 @@ export class Game {
       if (pick) {
         pick.apply(this.player);
         this.sound.upgrade();
-        this.director.startWave(this.wave);
+        // Wave-clear upgrades start the next wave; level-up upgrades
+        // just resume the wave that is still running.
+        if (this.upgradeCause === 'wave') this.director.startWave(this.wave);
         this.state = 'play';
       }
     } else if (this.state === 'over') {
@@ -430,6 +510,7 @@ export class Game {
     this.reef.draw(ctx, this.time, shX, shY);
     if (this.state !== 'title') {
       for (const m of this.motes) drawMote(ctx, m, this.time);
+      for (const g of this.xpGems) drawXpGem(ctx, g, this.time);
       for (const e of this.enemies) drawThorn(ctx, e);
       for (const s of this.enemyShots) drawThornShot(ctx, s);
       for (const b of this.bolts) drawBolt(ctx, b);

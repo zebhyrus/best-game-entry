@@ -22,6 +22,13 @@ export class Moth {
     this.bounce = 0; // extra thorns a bolt can jump to after a hit
     this.nova = 0; // bolts per radial burst, 0 = no nova
     this.novaTimer = 2.5;
+    this.xp = 0; // Magic Survival-style level progress
+    this.level = 1;
+    this.xpNeed = 5;
+    this.storm = 0; // lightning targets per strike, 0 = no storm
+    this.stormTimer = 0;
+    this.frost = 0; // frost nova level, 0 = no nova
+    this.frostTimer = 0;
     this.pickupRadius = PLAYER.pickupRadius;
     this.comboWindow = PLAYER.comboWindow;
     this.dashCooldown = PLAYER.dashCooldown;
@@ -114,10 +121,13 @@ export class Thorn {
     this.isBoss = kind === 'monarch';
     this.burstTimer = 2.5;
     this.summonTimer = 6;
+    this.slowTimer = 0; // frost nova: moves at 45% while > 0
   }
 
   update(dt, px, py) {
     this.flash = Math.max(0, this.flash - dt * 6);
+    this.slowTimer = Math.max(0, this.slowTimer - dt);
+    const sp = this.speed * (this.slowTimer > 0 ? 0.45 : 1);
     this.angle += this.spin * dt;
     const dx = px - this.x;
     const dy = py - this.y;
@@ -128,8 +138,8 @@ export class Thorn {
     if (this.kind === 'dart') {
       this.stateTimer -= dt;
       if (this.state === 'chase') {
-        this.x += nx * this.speed * dt;
-        this.y += ny * this.speed * dt;
+        this.x += nx * sp * dt;
+        this.y += ny * sp * dt;
         if (this.stateTimer <= 0 && dist < 320) {
           this.state = 'windup';
           this.stateTimer = 0.45;
@@ -154,21 +164,21 @@ export class Thorn {
 
     if (this.kind === 'spitter') {
       if (dist > 340) {
-        this.x += nx * this.speed * dt;
-        this.y += ny * this.speed * dt;
+        this.x += nx * sp * dt;
+        this.y += ny * sp * dt;
       } else if (dist < 220) {
-        this.x -= nx * this.speed * 0.7 * dt;
-        this.y -= ny * this.speed * 0.7 * dt;
+        this.x -= nx * sp * 0.7 * dt;
+        this.y -= ny * sp * 0.7 * dt;
       } else {
-        this.x += -ny * this.speed * 0.4 * dt;
-        this.y += nx * this.speed * 0.4 * dt;
+        this.x += -ny * sp * 0.4 * dt;
+        this.y += nx * sp * 0.4 * dt;
       }
       return;
     }
 
     // thornling, splitter, monarch: steady pursuit, monarch slower.
-    this.x += nx * this.speed * dt;
-    this.y += ny * this.speed * dt;
+    this.x += nx * sp * dt;
+    this.y += ny * sp * dt;
   }
 }
 
@@ -231,6 +241,35 @@ export class Mote {
     this.heal = heal || 0;
     this.radius = 7;
     this.life = 12;
+    this.phase = Math.random() * Math.PI * 2;
+    this.dead = false;
+  }
+
+  update(dt, px, py, pullRadius) {
+    this.life -= dt;
+    this.phase += dt * 4;
+    const dx = px - this.x;
+    const dy = py - this.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    if (dist < pullRadius) {
+      const pull = 520 * (1 - dist / pullRadius) + 120;
+      this.x += (dx / dist) * pull * dt;
+      this.y += (dy / dist) * pull * dt;
+    }
+    if (this.life <= 0) this.dead = true;
+  }
+}
+
+export class XpGem {
+  // Magic Survival-style XP: dropped by every kill, magnetized to
+  // the moth, fills the level bar. Blue so it reads apart from the
+  // gold score motes.
+  constructor(x, y, value) {
+    this.x = x;
+    this.y = y;
+    this.value = value || 1;
+    this.radius = 6;
+    this.life = 20;
     this.phase = Math.random() * Math.PI * 2;
     this.dead = false;
   }

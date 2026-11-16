@@ -180,6 +180,14 @@ export function drawThorn(ctx, e) {
     ctx.fillStyle = PALETTE.coral;
     ctx.fillRect(e.x - w / 2, e.y - e.radius - 12, w * (e.hp / e.maxHp), 4);
   }
+  // Frost ring while slowed.
+  if (e.slowTimer > 0) {
+    ctx.strokeStyle = 'rgba(165, 243, 255, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.radius + 6, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 }
 
 export function drawBolt(ctx, b) {
@@ -237,6 +245,21 @@ export function drawMote(ctx, m, time) {
   ctx.restore();
 }
 
+export function drawXpGem(ctx, g, time) {
+  ctx.save();
+  const bob = Math.sin(time * 3 + g.phase) * 2;
+  ctx.translate(g.x, g.y + bob);
+  ctx.rotate(Math.PI / 4);
+  ctx.fillStyle = '#3fa9ff';
+  ctx.shadowColor = '#3fa9ff';
+  ctx.shadowBlur = 12;
+  const r = g.radius;
+  ctx.fillRect(-r * 0.7, -r * 0.7, r * 1.4, r * 1.4);
+  ctx.fillStyle = '#cfeaff';
+  ctx.fillRect(-r * 0.3, -r * 0.3, r * 0.6, r * 0.6);
+  ctx.restore();
+}
+
 export function drawFloatText(ctx, f) {
   ctx.save();
   ctx.globalAlpha = Math.max(0, f.life / 0.9);
@@ -247,9 +270,20 @@ export function drawFloatText(ctx, f) {
   ctx.restore();
 }
 
+function fmtTime(t) {
+  const m = Math.floor(t / 60);
+  const s = Math.floor(t % 60);
+  return m + ':' + String(s).padStart(2, '0');
+}
+
 export function drawHud(ctx, s) {
   const p = s.player;
   ctx.save();
+  // XP bar, full width at the very top (Magic Survival-style).
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(0, 0, VIEW.width, 6);
+  ctx.fillStyle = '#3fa9ff';
+  ctx.fillRect(0, 0, VIEW.width * Math.min(1, p.xp / p.xpNeed), 6);
   ctx.textAlign = 'left';
   // Score block.
   ctx.fillStyle = PALETTE.white;
@@ -258,6 +292,9 @@ export function drawHud(ctx, s) {
   ctx.fillStyle = PALETTE.dim;
   ctx.font = '16px "Trebuchet MS", sans-serif';
   ctx.fillText('BEST ' + s.best.toLocaleString('en-US'), 22, 66);
+  ctx.fillStyle = '#3fa9ff';
+  ctx.font = 'bold 17px "Trebuchet MS", sans-serif';
+  ctx.fillText('LV ' + p.level + '  ·  ' + fmtTime(s.elapsed), 22, 132);
   // Combo.
   if (s.combo > 1) {
     ctx.fillStyle = PALETTE.gold;
@@ -505,14 +542,17 @@ export function drawGameOver(ctx, s, touch = false) {
   ctx.fillStyle = PALETTE.dim;
   ctx.font = '21px "Trebuchet MS", sans-serif';
   ctx.fillText('You reached wave ' + s.wave + '  ·  ' + s.kills + ' thorns shattered', VIEW.width / 2, 372);
+  ctx.fillStyle = PALETTE.softCyan;
+  ctx.font = '21px "Trebuchet MS", sans-serif';
+  ctx.fillText('Survived ' + fmtTime(s.elapsed), VIEW.width / 2, 404);
   if (s.score >= s.best && s.score > 0) {
     ctx.fillStyle = PALETTE.gold;
     ctx.font = 'bold 24px "Trebuchet MS", sans-serif';
-    ctx.fillText('★ NEW BEST SCORE ★', VIEW.width / 2, 420);
+    ctx.fillText('★ NEW BEST SCORE ★', VIEW.width / 2, 448);
   } else {
     ctx.fillStyle = PALETTE.gold;
     ctx.font = '20px "Trebuchet MS", sans-serif';
-    ctx.fillText('Best score: ' + s.best.toLocaleString('en-US'), VIEW.width / 2, 420);
+    ctx.fillText('Best score: ' + s.best.toLocaleString('en-US'), VIEW.width / 2, 448);
   }
   const pulse = 0.6 + 0.4 * Math.sin(s.time * 3);
   ctx.globalAlpha = pulse;
