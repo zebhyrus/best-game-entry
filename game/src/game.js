@@ -7,6 +7,7 @@ import { makeRng } from './rng.js';
 import { Moth, Bolt, Thorn, ThornShot, Spark, Mote, XpGem, FloatText } from './entities.js';
 import { WaveDirector } from './waves.js';
 import { SoundEngine } from './audio.js';
+import { Fx } from './fx.js';
 import { Input } from './input.js';
 import {
   Reef, drawMoth, drawOrbit, drawThorn, drawBolt, drawThornShot, drawSpark,
@@ -23,6 +24,7 @@ export class Game {
     this.rng = makeRng(20261116);
     this.reef = new Reef(20261116);
     this.sound = new SoundEngine();
+    this.fx = new Fx();
     this.input = new Input(canvas);
     this.state = 'title';
     this.time = 0;
@@ -41,7 +43,11 @@ export class Game {
     this.comboTimer = 0;
     this.wave = 0;
     this.elapsed = 0; // survival timer, Magic Survival-style
-    this.upgradeCause = 'wave'; // 'wave' or 'level'
+    this.upgradeCause = 'wave'; // 'wave', 'level' or 'boss'
+    this.upgradeTitle = 'WAVE CLEARED — CHOOSE A GLOW';
+    this.bossRewardActive = false; // a boss reward screen is showing
+    this.lowHpTimer = 0;
+    this.dashTrailTimer = 0;
     this.shake = 0;
     this.best = 0;
     try {
@@ -78,6 +84,11 @@ export class Game {
     this.floats = [];
     this.elapsed = 0;
     this.upgradeCause = 'wave';
+    this.upgradeTitle = 'WAVE CLEARED — CHOOSE A GLOW';
+    this.bossRewardActive = false;
+    this.lowHpTimer = 0;
+    this.dashTrailTimer = 0;
+    this.fx.clear();
     this.player = new Moth(VIEW.width / 2, VIEW.height / 2);
     this.director = new WaveDirector(makeRng((Math.random() * 1e9) | 0));
     this.wave = 1;
@@ -96,7 +107,11 @@ export class Game {
   }
 
   burst(x, y, color, count, speed) {
-    this.sparks.push(new Spark(x, y, color, count, speed || 260));
+    // Cap total spark parts so a big fight never tanks the frame rate.
+    let parts = 0;
+    for (const s of this.sparks) parts += s.parts.length;
+    if (parts >= 700) return;
+    this.sparks.push(new Spark(x, y, color, Math.min(count, 700 - parts), speed || 260));
   }
 
   killEnemy(e, index) {
@@ -108,13 +123,16 @@ export class Game {
       this.player.hp = Math.min(this.player.maxHp, this.player.hp + this.player.leech);
     }
     this.addScore(e.score, e.x, e.y);
-    this.burst(e.x, e.y, e.color, e.isBoss ? 60 : 16, e.isBoss ? 420 : 260);
+    // Death bursts in the enemy's own colour, lit with white and gold.
+    this.fx.burstMulti(e.x, e.y, [e.color, '#ffffff', PALETTE.gold], e.isBoss ? 60 : 16, e.isBoss ? 420 : 260, this.sparks);
     this.sound.explode();
     if (e.isBoss) {
       this.shake = 18;
+      this.fx.bossExplosion(e.x, e.y);
       for (let i = 0; i < 6; i++) {
         this.motes.push(new Mote(e.x + (Math.random() - 0.5) * 120, e.y + (Math.random() - 0.5) * 120, 150, 10));
       }
+      this.bossReward(e);
     } else {
       this.shake = Math.max(this.shake, 4);
     }
@@ -144,6 +162,36 @@ export class Game {
     this.enemies.splice(index, 1);
   }
 
+  // The boss-defeat reward: a big score bonus, a heal, an XP gem
+  // shower, the Monarch's bullets vanish, and a guaranteed upgrade
+  // pick through the normal picker — plus the banner and fanfare.
+  // Gem positions come from the seeded RNG so replays stay identical.
+  bossReward(e) {
+    const p = this.player;
+    this.addScore(2500, e.x, e.y);
+    const heal = 40;
+    p.hp = Math.min(p.maxHp, p.hp + heal);
+    this.floats.push(new FloatText(e.x, e.y - 60, '+' + heal + ' HULL', PALETTE.softCyan, 20, 1.2));
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const r = 60 + this.rng() * 80;
+      this.xpGems.push(new XpGem(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r, 1));
+    }
+    this.enemyShots = [];
+    this.fx.banner('BOSS SLAIN', 'The Monarch falls — choose your reward', PALETTE.gold, 2.4);
+    this.sound.bossFanfare();
+    // If the Monarch was the last thorn standing, this screen IS the
+    // wave-clear screen (picking it starts the next wave); otherwise
+    // it pauses the wave and resumes it after the pick.
+    const waveCleared = this.director.remaining === 0 && this.enemies.length === 1;
+    if (waveCleared) this.wave += 1;
+    this.upgradeCause = waveCleared ? 'wave' : 'boss';
+    this.upgradeTitle = 'BOSS SLAIN — CHOOSE YOUR REWARD';
+    this.bossRewardActive = true;
+    this.director.draftUpgrades();
+    this.state = 'upgrade';
+  }
+
   playerHit(damage, x, y) {
     const p = this.player;
     if (p.invuln > 0 || p.dashTimeLeft > 0 || this.state !== 'play') return;
@@ -153,6 +201,7 @@ export class Game {
     this.combo = 0;
     this.comboTimer = 0;
     this.burst(p.x, p.y, PALETTE.coral, 14, 300);
+    this.fx.addFlash('rgba(255, 46, 77, 0.22)', 0.35, 0.22);
     this.sound.hurt();
     this.floats.push(new FloatText(p.x, p.y - 24, '-' + damage, PALETTE.coral));
     // Thornmail: attackers bleed for hitting you.
@@ -200,8 +249,9 @@ export class Game {
       );
       b.radius = p.bulletRadius;
       this.bolts.push(b);
+      this.fx.addMuzzle(b.x, b.y, a);
     }
-    this.sound.shoot();
+    this.sound.shootVariant(p.shots, p.bulletDamage, p.homing);
   }
 
   updatePlay(dt) {
@@ -247,6 +297,11 @@ export class Game {
       p.dashTimeLeft -= dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
+      this.dashTrailTimer -= dt;
+      if (this.dashTrailTimer <= 0) {
+        this.dashTrailTimer = 0.03;
+        this.fx.addTrail(p.x, p.y, p.aimAngle);
+      }
     } else {
       p.x += mx * p.speed * dt;
       p.y += my * p.speed * dt;
@@ -275,6 +330,16 @@ export class Game {
 
     // Regeneration.
     if (p.regen > 0) p.hp = Math.min(p.maxHp, p.hp + p.regen * dt);
+
+    // Low-hull warning: a dull beat and a red pulse every 2 seconds.
+    if (p.hp > 0 && p.hp < p.maxHp * 0.3) {
+      this.lowHpTimer -= dt;
+      if (this.lowHpTimer <= 0) {
+        this.lowHpTimer = 2;
+        this.sound.lowHp();
+        this.fx.addFlash('rgba(255, 46, 77, 0.14)', 0.6, 0.14);
+      }
+    }
 
     // Orbit wisps: circling blades that shred on contact.
     if (p.orbit > 0) {
@@ -352,6 +417,14 @@ export class Game {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
       e.update(dt, p.x, p.y);
+      e.spawnAge = Math.min(1, (e.spawnAge || 0) + dt * 4);
+      // The Monarch announces itself once: roar, ring, banner.
+      if (e.isBoss && !e.announced) {
+        e.announced = true;
+        this.sound.bossRoar();
+        this.fx.addRing(e.x, e.y, '#ff4d6d', 260, 0.8, 4);
+        this.fx.banner('THE THORN MONARCH', 'Wave ' + this.wave + ' — bring it down', '#ff4d6d', 1.8);
+      }
       // Spitter fires.
       if (e.kind === 'spitter') {
         e.shootTimer -= dt;
@@ -411,9 +484,15 @@ export class Game {
           b.lastHit = e;
           b.cooldown = 0.15;
           if (p.chill > 0) e.slowTimer = Math.max(e.slowTimer, p.chill);
-          this.floats.push(new FloatText(e.x, e.y - e.radius - 6, crit ? dmg + '!' : String(dmg), crit ? PALETTE.gold : PALETTE.softCyan));
-          this.burst(b.x, b.y, PALETTE.cyan, 4, 160);
-          this.sound.hit();
+          if (crit) {
+            this.floats.push(new FloatText(e.x, e.y - e.radius - 6, dmg + '!', PALETTE.gold, 22, 1.0));
+            this.fx.burstMulti(b.x, b.y, [PALETTE.gold, '#ffffff'], 10, 220, this.sparks);
+            this.sound.crit();
+          } else {
+            this.floats.push(new FloatText(e.x, e.y - e.radius - 6, String(dmg), PALETTE.softCyan));
+            this.burst(b.x, b.y, PALETTE.cyan, 4, 160);
+            this.sound.hitCombo(this.combo);
+          }
           if (e.hp <= 0) this.killEnemy(e, ei);
           if (b.pierce > 0) {
             b.pierce -= 1;
@@ -472,6 +551,7 @@ export class Game {
       if (Math.hypot(m.x - p.x, m.y - p.y) < m.radius + p.radius) {
         this.addScore(m.value, m.x, m.y);
         p.hp = Math.min(p.maxHp, p.hp + m.heal);
+        this.burst(m.x, m.y, PALETTE.gold, 6, 140);
         this.sound.pickup();
         this.motes.splice(i, 1);
       }
@@ -484,6 +564,7 @@ export class Game {
       if (m.dead) { this.xpGems.splice(i, 1); continue; }
       if (Math.hypot(m.x - p.x, m.y - p.y) < m.radius + p.radius) {
         p.xp += m.value * p.xpMul;
+        this.burst(m.x, m.y, '#3fa9ff', 4, 140);
         this.xpGems.splice(i, 1);
         this.sound.pickup();
         // One level-up draft per frame; leftover XP banks for the next gem.
@@ -492,6 +573,7 @@ export class Game {
           p.level += 1;
           p.xpNeed = 5 + (p.level - 1) * 3;
           this.upgradeCause = 'level';
+          this.upgradeTitle = 'LEVEL UP — CHOOSE A GLOW';
           this.director.draftUpgrades();
           this.state = 'upgrade';
           this.sound.waveClear();
@@ -499,12 +581,17 @@ export class Game {
       }
     }
 
-    // Wave cleared?
-    if (this.director.remaining === 0 && this.enemies.length === 0) {
+    // Wave cleared? Skipped while a boss reward screen is showing —
+    // that screen already covers the clear, and its pick restarts
+    // the wave when the Monarch was the last thorn standing.
+    if (this.director.remaining === 0 && this.enemies.length === 0 && !this.bossRewardActive) {
       this.wave += 1;
       this.upgradeCause = 'wave';
+      this.upgradeTitle = 'WAVE CLEARED — CHOOSE A GLOW';
       this.director.draftUpgrades();
       this.state = 'upgrade';
+      this.fx.addRing(p.x, p.y, PALETTE.gold, 300, 0.8, 5);
+      this.fx.addFlash('rgba(255, 215, 106, 0.16)', 0.5, 0.16);
       this.sound.waveClear();
     }
   }
@@ -538,11 +625,13 @@ export class Game {
     return best;
   }
 
-  updateFx(dt) {
+  updateFx(dt, realDt) {
     for (const s of this.sparks) s.update(dt);
     this.sparks = this.sparks.filter((s) => s.alive);
     for (const f of this.floats) f.update(dt);
     this.floats = this.floats.filter((f) => !f.dead);
+    if (this.floats.length > 40) this.floats.splice(0, this.floats.length - 40);
+    this.fx.update(dt, realDt);
     this.shake = Math.max(0, this.shake - dt * 30);
   }
 
@@ -550,6 +639,8 @@ export class Game {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.time += dt;
+    // Slow-mo (boss deaths) scales the game step, never the clock.
+    const sdt = dt * this.fx.timeScale;
     const inp = this.input;
     inp.uiMode = this.state !== 'play';
 
@@ -561,7 +652,7 @@ export class Game {
       if (inp.wasPressed('p', 'escape')) {
         this.state = 'pause';
       } else {
-        this.updatePlay(dt);
+        this.updatePlay(sdt);
       }
     } else if (this.state === 'pause') {
       if (inp.wasPressed('p', 'escape', 'enter')) this.state = 'play';
@@ -569,9 +660,13 @@ export class Game {
       const pick = this.pickUpgrade();
       if (pick) {
         pick.apply(this.player);
+        if (this.bossRewardActive) {
+          this.sound.rewardJingle();
+          this.bossRewardActive = false;
+        }
         this.sound.upgrade();
-        // Wave-clear upgrades start the next wave; level-up upgrades
-        // just resume the wave that is still running.
+        // Wave-clear upgrades start the next wave; level-up and boss
+        // upgrades just resume the wave that is still running.
         if (this.upgradeCause === 'wave') this.director.startWave(this.wave);
         this.state = 'play';
       }
@@ -579,7 +674,7 @@ export class Game {
       if (inp.wasPressed('r', 'enter') || inp.mousePressed) this.start();
     }
 
-    this.updateFx(dt);
+    this.updateFx(sdt, dt);
     this.draw();
     inp.endFrame();
     requestAnimationFrame(this.loop);
@@ -624,6 +719,7 @@ export class Game {
       if (this.state === 'play' && this.player.orbit > 0) drawOrbit(ctx, this.player, this.time);
       for (const s of this.sparks) drawSpark(ctx, s);
       for (const f of this.floats) drawFloatText(ctx, f);
+      this.fx.drawWorld(ctx);
     } else {
       // A lone moth drifts over the reef on the title screen.
       const tx = VIEW.width / 2 + Math.sin(this.time * 0.5) * 180;
@@ -639,10 +735,12 @@ export class Game {
       if (this.state === 'pause') drawPause(ctx, this.input.touchMode);
     } else if (this.state === 'upgrade') {
       drawHud(ctx, this);
-      drawUpgrade(ctx, this.director.draft, this.input.touchMode);
+      drawUpgrade(ctx, this.director.draft, this.input.touchMode, this.upgradeTitle, this.time);
     } else if (this.state === 'over') {
       drawGameOver(ctx, this, this.input.touchMode);
     }
+    // Banners and flashes sit on top of everything, menus included.
+    this.fx.drawScreen(ctx);
   }
 
   // Screenshot staging: ?shot=title|play|boss|over|upgrade sets a
@@ -686,6 +784,7 @@ export class Game {
       if (shot === 'boss') {
         const boss = new Thorn('monarch', 640, 220, 5);
         boss.hp = Math.round(boss.maxHp * 0.62);
+        boss.spawnAge = 1;
         this.enemies.push(boss);
         this.enemies.push(new Thorn('thornling', 300, 300, 5));
         this.enemies.push(new Thorn('dart', 980, 320, 5));
@@ -696,6 +795,8 @@ export class Game {
         this.bolts.push(new Bolt(560, 400, -1.2, 640, 13, 0));
         this.bolts.push(new Bolt(600, 410, -1.35, 640, 13, 0));
         this.player.hp = 62;
+        this.fx.addRing(640, 220, '#ff4d6d', 200, 0.9, 4);
+        this.fx.banner('THE THORN MONARCH', 'Wave 5 — bring it down', '#ff4d6d', 1.8);
       }
       if (shot === 'over') {
         this.score = 4810;

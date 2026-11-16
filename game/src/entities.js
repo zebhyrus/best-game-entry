@@ -137,6 +137,8 @@ export class Thorn {
     this.burstTimer = 2.5;
     this.summonTimer = 6;
     this.slowTimer = 0; // frost nova: moves at 45% while > 0
+    this.spawnAge = 0; // 0 → 1: scales in over the first quarter second
+    this.announced = false; // boss roar + banner, played once on spawn
   }
 
   update(dt, px, py) {
@@ -305,12 +307,14 @@ export class XpGem {
 }
 
 export class FloatText {
-  constructor(x, y, text, color) {
+  constructor(x, y, text, color, size, life) {
     this.x = x;
     this.y = y;
     this.text = text;
     this.color = color || '#f2feff';
-    this.life = 0.9;
+    this.size = size || 17;
+    this.life = life || 0.9;
+    this.maxLife = this.life;
     this.dead = false;
   }
 

@@ -154,6 +154,11 @@ export function drawMoth(ctx, m, time) {
 export function drawThorn(ctx, e) {
   ctx.save();
   ctx.translate(e.x, e.y);
+  // Spawn-in: thorns pop in with an ease-out scale over ~0.25s.
+  const sa = e.spawnAge == null ? 1 : Math.min(1, e.spawnAge);
+  const s = sa >= 1 ? 1 : 0.3 + 0.7 * (1 - Math.pow(1 - sa, 3));
+  ctx.scale(s, s);
+  ctx.globalAlpha = 0.3 + 0.7 * sa;
   ctx.shadowColor = e.color;
   ctx.shadowBlur = 14;
   ctx.fillStyle = e.flash > 0 ? '#ffffff' : e.color;
@@ -291,9 +296,9 @@ export function drawXpGem(ctx, g, time) {
 
 export function drawFloatText(ctx, f) {
   ctx.save();
-  ctx.globalAlpha = Math.max(0, f.life / 0.9);
+  ctx.globalAlpha = Math.max(0, f.life / (f.maxLife || 0.9));
   ctx.fillStyle = f.color;
-  ctx.font = 'bold 17px "Trebuchet MS", sans-serif';
+  ctx.font = 'bold ' + (f.size || 17) + 'px "Trebuchet MS", sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText(f.text, f.x, f.y);
   ctx.restore();
@@ -490,14 +495,18 @@ export function drawTitle(ctx, time, best, touch = false) {
   ctx.restore();
 }
 
-export function drawUpgrade(ctx, draft, touch = false) {
+export function drawUpgrade(ctx, draft, touch = false, title, time) {
   ctx.save();
   ctx.fillStyle = 'rgba(2, 12, 18, 0.6)';
   ctx.fillRect(0, 0, VIEW.width, VIEW.height);
   ctx.textAlign = 'center';
   ctx.fillStyle = PALETTE.white;
   ctx.font = 'bold 40px "Trebuchet MS", sans-serif';
-  ctx.fillText('WAVE CLEARED — CHOOSE A GLOW', VIEW.width / 2, 170);
+  // The banner title pulses gently so the moment lands.
+  const pulse = 0.75 + 0.25 * Math.sin((time || 0) * 3);
+  ctx.globalAlpha = pulse;
+  ctx.fillText(title || 'WAVE CLEARED — CHOOSE A GLOW', VIEW.width / 2, 170);
+  ctx.globalAlpha = 1;
   ctx.fillStyle = PALETTE.dim;
   ctx.font = '18px "Trebuchet MS", sans-serif';
   ctx.fillText(touch ? 'Tap a card to choose' : 'Press 1, 2 or 3 — or click a card', VIEW.width / 2, 204);
