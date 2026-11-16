@@ -18,6 +18,10 @@ export class Moth {
     this.bulletDamage = PLAYER.bulletDamage;
     this.shots = 1;
     this.pierce = 0;
+    this.homing = 0; // rad/s the bolts steer toward prey, 0 = straight
+    this.bounce = 0; // extra thorns a bolt can jump to after a hit
+    this.nova = 0; // bolts per radial burst, 0 = no nova
+    this.novaTimer = 2.5;
     this.pickupRadius = PLAYER.pickupRadius;
     this.comboWindow = PLAYER.comboWindow;
     this.dashCooldown = PLAYER.dashCooldown;
@@ -41,19 +45,45 @@ export class Moth {
 }
 
 export class Bolt {
-  constructor(x, y, angle, speed, damage, pierce) {
+  constructor(x, y, angle, speed, damage, pierce, homing = 0, bounce = 0) {
     this.x = x;
     this.y = y;
+    this.speed = speed;
     this.vx = Math.cos(angle) * speed;
     this.vy = Math.sin(angle) * speed;
     this.radius = PLAYER.bulletRadius;
     this.damage = damage;
     this.pierce = pierce;
+    this.homing = homing;
+    this.bouncesLeft = bounce;
+    this.lastHit = null; // enemy just hit — not hit again for a moment
+    this.cooldown = 0;
     this.life = 1.4;
     this.dead = false;
   }
 
-  update(dt) {
+  update(dt, enemies) {
+    this.cooldown = Math.max(0, this.cooldown - dt);
+    // Seeker bolts steer toward the nearest thorn, up to homing rad/s.
+    if (this.homing > 0 && enemies && enemies.length > 0) {
+      let best = null;
+      let bestD = 560;
+      for (const e of enemies) {
+        const d = Math.hypot(e.x - this.x, e.y - this.y);
+        if (d < bestD) { bestD = d; best = e; }
+      }
+      if (best) {
+        const want = Math.atan2(best.y - this.y, best.x - this.x);
+        const cur = Math.atan2(this.vy, this.vx);
+        let diff = want - cur;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        const turn = Math.max(-this.homing * dt, Math.min(this.homing * dt, diff));
+        const a = cur + turn;
+        this.vx = Math.cos(a) * this.speed;
+        this.vy = Math.sin(a) * this.speed;
+      }
+    }
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     this.life -= dt;

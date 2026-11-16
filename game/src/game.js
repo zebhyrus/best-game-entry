@@ -150,7 +150,7 @@ export class Game {
       this.bolts.push(new Bolt(
         p.x + Math.cos(a) * (p.radius + 6),
         p.y + Math.sin(a) * (p.radius + 6),
-        a, p.bulletSpeed, p.bulletDamage, p.pierce,
+        a, p.bulletSpeed, p.bulletDamage, p.pierce, p.homing, p.bounce,
       ));
     }
     this.sound.shoot();
@@ -199,10 +199,23 @@ export class Game {
     p.x = Math.max(p.radius, Math.min(VIEW.width - p.radius, p.x));
     p.y = Math.max(p.radius, Math.min(VIEW.height - p.radius, p.y));
 
-    // Shooting.
-    if (inp.mouseDown && p.fireTimer <= 0) {
+    // Shooting: bolts fire on their own — you just aim.
+    if (p.fireTimer <= 0) {
       this.fireBolts();
       p.fireTimer = p.fireInterval;
+    }
+
+    // Coral nova: a ring of bolts in every direction, on a timer.
+    if (p.nova > 0) {
+      p.novaTimer -= dt;
+      if (p.novaTimer <= 0) {
+        p.novaTimer = 2.5;
+        for (let k = 0; k < p.nova; k++) {
+          const a = (k / p.nova) * Math.PI * 2;
+          this.bolts.push(new Bolt(p.x, p.y, a, p.bulletSpeed, p.bulletDamage, 0));
+        }
+        this.sound.shoot();
+      }
     }
 
     // Waves.
@@ -253,22 +266,36 @@ export class Game {
     // Bolts vs enemies.
     for (let bi = this.bolts.length - 1; bi >= 0; bi--) {
       const b = this.bolts[bi];
-      b.update(dt);
+      b.update(dt, this.enemies);
       if (b.dead || b.x < -20 || b.x > VIEW.width + 20 || b.y < -20 || b.y > VIEW.height + 20) {
         this.bolts.splice(bi, 1);
         continue;
       }
       for (let ei = this.enemies.length - 1; ei >= 0; ei--) {
         const e = this.enemies[ei];
+        if (e === b.lastHit && b.cooldown > 0) continue;
         if (Math.hypot(b.x - e.x, b.y - e.y) < b.radius + e.radius) {
           e.hp -= b.damage;
           e.flash = 1;
+          b.lastHit = e;
+          b.cooldown = 0.15;
           this.floats.push(new FloatText(e.x, e.y - e.radius - 6, String(b.damage), PALETTE.softCyan));
           this.burst(b.x, b.y, PALETTE.cyan, 4, 160);
           this.sound.hit();
           if (e.hp <= 0) this.killEnemy(e, ei);
           if (b.pierce > 0) {
             b.pierce -= 1;
+          } else if (b.bouncesLeft > 0) {
+            const next = this.nearestEnemy(b.x, b.y, e, 320);
+            if (next) {
+              b.bouncesLeft -= 1;
+              const a = Math.atan2(next.y - b.y, next.x - b.x);
+              const sp = Math.hypot(b.vx, b.vy) || b.speed;
+              b.vx = Math.cos(a) * sp;
+              b.vy = Math.sin(a) * sp;
+            } else {
+              b.dead = true;
+            }
           } else {
             b.dead = true;
           }
@@ -309,6 +336,17 @@ export class Game {
       this.state = 'upgrade';
       this.sound.waveClear();
     }
+  }
+
+  nearestEnemy(x, y, exclude, maxDist) {
+    let best = null;
+    let bestD = maxDist;
+    for (const e of this.enemies) {
+      if (e === exclude) continue;
+      const d = Math.hypot(e.x - x, e.y - y);
+      if (d < bestD) { bestD = d; best = e; }
+    }
+    return best;
   }
 
   updateFx(dt) {

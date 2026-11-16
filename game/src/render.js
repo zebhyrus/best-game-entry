@@ -184,10 +184,12 @@ export function drawThorn(ctx, e) {
 
 export function drawBolt(ctx, b) {
   ctx.save();
-  ctx.strokeStyle = PALETTE.cyan;
+  // Seeker bolts glow violet so the skill reads on screen.
+  const color = b.homing > 0 ? PALETTE.violet : PALETTE.cyan;
+  ctx.strokeStyle = color;
   ctx.lineWidth = 4;
   ctx.lineCap = 'round';
-  ctx.shadowColor = PALETTE.cyan;
+  ctx.shadowColor = color;
   ctx.shadowBlur = 10;
   ctx.beginPath();
   ctx.moveTo(b.x - b.vx * 0.02, b.y - b.vy * 0.02);
@@ -312,8 +314,8 @@ export function drawHud(ctx, s) {
   ctx.font = '14px "Trebuchet MS", sans-serif';
   ctx.fillText(
     s.input.touchMode
-      ? 'Left thumb — move · Right thumb — aim & hold to shoot'
-      : 'WASD move · mouse aim · hold click to shoot · SPACE dash · P pause · M mute',
+      ? 'Auto-fire · Left thumb — move · Right thumb — aim'
+      : 'Auto-fire · WASD move · mouse aim · SPACE dash · P pause · M mute',
     VIEW.width / 2, VIEW.height - 14,
   );
   if (s.input.touchMode) drawTouchControls(ctx, s);
@@ -401,11 +403,11 @@ export function drawTitle(ctx, time, best, touch = false) {
   ctx.fillStyle = PALETTE.dim;
   ctx.font = '17px "Trebuchet MS", sans-serif';
   if (touch) {
-    ctx.fillText('Left thumb — move      Right thumb — aim & hold to shoot', VIEW.width / 2, 448);
-    ctx.fillText('DASH button — dash through danger      II — pause', VIEW.width / 2, 476);
+    ctx.fillText('Left thumb — move      Right thumb — aim', VIEW.width / 2, 448);
+    ctx.fillText('Bolts fire on their own      DASH button — dash      II — pause', VIEW.width / 2, 476);
   } else {
-    ctx.fillText('WASD / arrows — move      Mouse — aim      Hold click — shoot', VIEW.width / 2, 448);
-    ctx.fillText('SPACE — dash through danger      P — pause      M — mute', VIEW.width / 2, 476);
+    ctx.fillText('WASD / arrows — move      Mouse — aim', VIEW.width / 2, 448);
+    ctx.fillText('Bolts fire on their own      SPACE — dash      P — pause      M — mute', VIEW.width / 2, 476);
   }
   ctx.fillText('Survive the waves. A Thorn Monarch rises every 5th wave.', VIEW.width / 2, 504);
   const pulse = 0.6 + 0.4 * Math.sin(time * 3);

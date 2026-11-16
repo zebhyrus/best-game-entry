@@ -90,6 +90,24 @@ export const UPGRADES = [
     desc: 'Your combo lasts 2 seconds longer per kill.',
     apply: (p) => { p.comboWindow += 2; },
   },
+  {
+    id: 'seeker',
+    name: 'SEEKER LIGHT',
+    desc: 'Your bolts curve toward the nearest thorn-creature.',
+    apply: (p) => { p.homing = p.homing ? p.homing + 1.2 : 2.4; },
+  },
+  {
+    id: 'ricochet',
+    name: 'RICOCHET GLOW',
+    desc: 'After a hit, a bolt bounces to another nearby thorn.',
+    apply: (p) => { p.bounce += 1; },
+  },
+  {
+    id: 'nova',
+    name: 'CORAL NOVA',
+    desc: 'Every few seconds a ring of bolts bursts out in all directions.',
+    apply: (p) => { p.nova = p.nova ? p.nova + 4 : 10; p.novaTimer = Math.min(p.novaTimer, 1.5); },
+  },
 ];
 
 export const WAVES = {
