@@ -9,7 +9,7 @@ import { WaveDirector } from './waves.js';
 import { SoundEngine } from './audio.js';
 import { Input } from './input.js';
 import {
-  Reef, drawMoth, drawThorn, drawBolt, drawThornShot, drawSpark,
+  Reef, drawMoth, drawOrbit, drawThorn, drawBolt, drawThornShot, drawSpark,
   drawMote, drawXpGem, drawFloatText, drawHud, drawTitle, drawUpgrade,
   drawPause, drawGameOver,
 } from './render.js';
@@ -104,6 +104,9 @@ export class Game {
     this.kills += 1;
     this.combo += 1;
     this.comboTimer = this.player.comboWindow;
+    if (this.player.leech > 0) {
+      this.player.hp = Math.min(this.player.maxHp, this.player.hp + this.player.leech);
+    }
     this.addScore(e.score, e.x, e.y);
     this.burst(e.x, e.y, e.color, e.isBoss ? 60 : 16, e.isBoss ? 420 : 260);
     this.sound.explode();
@@ -131,6 +134,13 @@ export class Game {
         this.xpGems.push(new XpGem(e.x + (Math.random() - 0.5) * 100, e.y + (Math.random() - 0.5) * 100, 1));
       }
     }
+    // Elites drop extra XP and a fat mote.
+    if (e.elite) {
+      for (let i = 0; i < 2; i++) {
+        this.xpGems.push(new XpGem(e.x + (Math.random() - 0.5) * 60, e.y + (Math.random() - 0.5) * 60, 1));
+      }
+      this.motes.push(new Mote(e.x, e.y, 150, 10));
+    }
     this.enemies.splice(index, 1);
   }
 
@@ -145,7 +155,30 @@ export class Game {
     this.burst(p.x, p.y, PALETTE.coral, 14, 300);
     this.sound.hurt();
     this.floats.push(new FloatText(p.x, p.y - 24, '-' + damage, PALETTE.coral));
+    // Thornmail: attackers bleed for hitting you.
+    if (p.thorns > 0) {
+      for (const e of [...this.enemies]) {
+        if (Math.hypot(e.x - p.x, e.y - p.y) < 150) {
+          e.hp -= p.thorns;
+          e.flash = 1;
+          if (e.hp <= 0) {
+            const idx = this.enemies.indexOf(e);
+            if (idx >= 0) this.killEnemy(e, idx);
+          }
+        }
+      }
+      this.burst(p.x, p.y, PALETTE.coral, 12, 240);
+    }
     if (p.hp <= 0) {
+      // Second wind: one free death per run.
+      if (p.revive) {
+        p.revive = false;
+        p.hp = 50;
+        p.invuln = 2;
+        this.burst(p.x, p.y, PALETTE.gold, 40, 380);
+        this.floats.push(new FloatText(p.x, p.y - 24, 'SECOND WIND!', PALETTE.gold));
+        return;
+      }
       p.hp = 0;
       this.state = 'over';
       this.burst(p.x, p.y, PALETTE.cyan, 70, 460);
@@ -160,11 +193,13 @@ export class Game {
     for (let i = 0; i < n; i++) {
       const offset = (i - (n - 1) / 2) * spread;
       const a = p.aimAngle + offset;
-      this.bolts.push(new Bolt(
+      const b = new Bolt(
         p.x + Math.cos(a) * (p.radius + 6),
         p.y + Math.sin(a) * (p.radius + 6),
         a, p.bulletSpeed, p.bulletDamage, p.pierce, p.homing, p.bounce,
-      ));
+      );
+      b.radius = p.bulletRadius;
+      this.bolts.push(b);
     }
     this.sound.shoot();
   }
@@ -213,8 +248,8 @@ export class Game {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
     } else {
-      p.x += mx * PLAYER.speed * dt;
-      p.y += my * PLAYER.speed * dt;
+      p.x += mx * p.speed * dt;
+      p.y += my * p.speed * dt;
     }
     p.x = Math.max(p.radius, Math.min(VIEW.width - p.radius, p.x));
     p.y = Math.max(p.radius, Math.min(VIEW.height - p.radius, p.y));
@@ -235,6 +270,55 @@ export class Game {
           this.bolts.push(new Bolt(p.x, p.y, a, p.bulletSpeed, p.bulletDamage, 0));
         }
         this.sound.shoot();
+      }
+    }
+
+    // Regeneration.
+    if (p.regen > 0) p.hp = Math.min(p.maxHp, p.hp + p.regen * dt);
+
+    // Orbit wisps: circling blades that shred on contact.
+    if (p.orbit > 0) {
+      p.orbitAngle += dt * 2.4;
+      for (let k = 0; k < p.orbit; k++) {
+        const a = p.orbitAngle + (k / p.orbit) * Math.PI * 2;
+        const ox = p.x + Math.cos(a) * 95;
+        const oy = p.y + Math.sin(a) * 95;
+        for (const e of [...this.enemies]) {
+          if ((e.orbHitAt || 0) + 0.5 > this.time) continue;
+          if (Math.hypot(e.x - ox, e.y - oy) < e.radius + 10) {
+            e.hp -= 20;
+            e.flash = 1;
+            e.orbHitAt = this.time;
+            this.burst(e.x, e.y, PALETTE.cyan, 4, 160);
+            if (e.hp <= 0) {
+              const idx = this.enemies.indexOf(e);
+              if (idx >= 0) this.killEnemy(e, idx);
+            }
+          }
+        }
+      }
+    }
+
+    // Meteor rain: a rock crashes down on a random thorn.
+    if (p.meteor > 0) {
+      p.meteorTimer -= dt;
+      if (p.meteorTimer <= 0) {
+        p.meteorTimer = 4;
+        const target = this.enemies[Math.floor(Math.random() * this.enemies.length)];
+        if (target) {
+          this.burst(target.x, target.y, PALETTE.coral, 26, 380);
+          for (const e of [...this.enemies]) {
+            if (Math.hypot(e.x - target.x, e.y - target.y) < 130) {
+              e.hp -= 40;
+              e.flash = 1;
+              if (e.hp <= 0) {
+                const idx = this.enemies.indexOf(e);
+                if (idx >= 0) this.killEnemy(e, idx);
+              }
+            }
+          }
+          this.sound.explode();
+        }
       }
     }
 
@@ -318,11 +402,16 @@ export class Game {
         const e = this.enemies[ei];
         if (e === b.lastHit && b.cooldown > 0) continue;
         if (Math.hypot(b.x - e.x, b.y - e.y) < b.radius + e.radius) {
-          e.hp -= b.damage;
+          // Critical sparks: double damage on a lucky roll.
+          let dmg = b.damage;
+          let crit = false;
+          if (p.crit > 0 && Math.random() < p.crit) { dmg *= 2; crit = true; }
+          e.hp -= dmg;
           e.flash = 1;
           b.lastHit = e;
           b.cooldown = 0.15;
-          this.floats.push(new FloatText(e.x, e.y - e.radius - 6, String(b.damage), PALETTE.softCyan));
+          if (p.chill > 0) e.slowTimer = Math.max(e.slowTimer, p.chill);
+          this.floats.push(new FloatText(e.x, e.y - e.radius - 6, crit ? dmg + '!' : String(dmg), crit ? PALETTE.gold : PALETTE.softCyan));
           this.burst(b.x, b.y, PALETTE.cyan, 4, 160);
           this.sound.hit();
           if (e.hp <= 0) this.killEnemy(e, ei);
@@ -341,6 +430,22 @@ export class Game {
             }
           } else {
             b.dead = true;
+          }
+          // Explosive rounds: splash damage around the impact.
+          if (p.explosive > 0) {
+            const radius = 100 + 30 * (p.explosive - 1);
+            this.burst(b.x, b.y, PALETTE.coral, 10, 200);
+            for (const o of [...this.enemies]) {
+              if (o === e || o.dead) continue;
+              if (Math.hypot(o.x - b.x, o.y - b.y) < radius) {
+                o.hp -= Math.round(dmg * 0.5);
+                o.flash = 1;
+                if (o.hp <= 0) {
+                  const idx = this.enemies.indexOf(o);
+                  if (idx >= 0) this.killEnemy(o, idx);
+                }
+              }
+            }
           }
           break;
         }
@@ -378,7 +483,7 @@ export class Game {
       m.update(dt, p.x, p.y, p.pickupRadius);
       if (m.dead) { this.xpGems.splice(i, 1); continue; }
       if (Math.hypot(m.x - p.x, m.y - p.y) < m.radius + p.radius) {
-        p.xp += m.value;
+        p.xp += m.value * p.xpMul;
         this.xpGems.splice(i, 1);
         this.sound.pickup();
         // One level-up draft per frame; leftover XP banks for the next gem.
@@ -516,6 +621,7 @@ export class Game {
       for (const b of this.bolts) drawBolt(ctx, b);
       // The moth is gone on the game-over screen — it died.
       if (this.state !== 'over') drawMoth(ctx, this.player, this.time);
+      if (this.state === 'play' && this.player.orbit > 0) drawOrbit(ctx, this.player, this.time);
       for (const s of this.sparks) drawSpark(ctx, s);
       for (const f of this.floats) drawFloatText(ctx, f);
     } else {

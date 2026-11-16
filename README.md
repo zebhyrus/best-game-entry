@@ -13,7 +13,7 @@ python3 -m http.server --directory game 8080
 # open http://localhost:8080 in desktop Chrome
 ```
 
-Just move and dash — bolts fire and aim at the nearest thorn on their own, at a slow base rate that only speeds up when you pick the SWIFT WINGS upgrade. Like Magic Survival: every kill drops blue XP gems, filling the level bar — level up mid-wave and pick 1 of 3 upgrades, while hordes swarm in from every side. WASD / arrows to move, SPACE to dash, P to pause, M to mute. Survive the waves — a Thorn Monarch rises every 5th wave. Between waves, pick 1 of 3 upgrades: more bolts, piercing, homing, ricochet, radial nova bursts, lightning storms, frost novas, and more. On touch screens: left thumb is a joystick to move, with on-screen DASH and pause buttons.
+Just move and dash — bolts fire and aim at the nearest thorn on their own, at a slow base rate that only speeds up when you pick the SWIFT WINGS upgrade. Like Magic Survival: every kill drops blue XP gems, filling the level bar — level up mid-wave and pick 1 of 3 upgrades from a pool of 25, while hordes swarm in from every side, elites hunt you down, and a Thorn Monarch rises every 5th wave. WASD / arrows to move, SPACE to dash, P to pause, M to mute. On touch screens: left thumb is a joystick to move, with on-screen DASH and pause buttons.
 
 ---
 

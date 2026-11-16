@@ -180,6 +180,14 @@ export function drawThorn(ctx, e) {
     ctx.fillStyle = PALETTE.coral;
     ctx.fillRect(e.x - w / 2, e.y - e.radius - 12, w * (e.hp / e.maxHp), 4);
   }
+  // Gold ring on elites.
+  if (e.elite) {
+    ctx.strokeStyle = PALETTE.gold;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.radius + 10, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   // Frost ring while slowed.
   if (e.slowTimer > 0) {
     ctx.strokeStyle = 'rgba(165, 243, 255, 0.8)';
@@ -188,6 +196,27 @@ export function drawThorn(ctx, e) {
     ctx.arc(e.x, e.y, e.radius + 6, 0, Math.PI * 2);
     ctx.stroke();
   }
+}
+
+export function drawOrbit(ctx, p, time) {
+  ctx.save();
+  for (let k = 0; k < p.orbit; k++) {
+    const a = p.orbitAngle + (k / p.orbit) * Math.PI * 2;
+    const x = p.x + Math.cos(a) * 95;
+    const y = p.y + Math.sin(a) * 95;
+    ctx.fillStyle = PALETTE.cyan;
+    ctx.shadowColor = PALETTE.cyan;
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.arc(x, y, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 export function drawBolt(ctx, b) {

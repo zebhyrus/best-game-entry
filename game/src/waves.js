@@ -21,6 +21,8 @@ export class WaveDirector {
     this.spawnTimer = 0;
     this.betweenWaves = false;
     this.draft = [];
+    this.spawned = 0;
+    this.eliteAt = new Set([0]);
   }
 
   isBossWave(n) {
@@ -39,6 +41,9 @@ export class WaveDirector {
     this.queue = shuffle(this.rng, this.queue);
     this.spawnTimer = 0.5;
     this.betweenWaves = false;
+    // Elites: the first spawn and the middle spawn of each wave.
+    this.spawned = 0;
+    this.eliteAt = new Set([0, Math.floor(this.queue.length / 2)]);
   }
 
   spawnPoint(player) {
@@ -62,7 +67,17 @@ export class WaveDirector {
     if (this.spawnTimer <= 0) {
       const kind = this.queue.shift();
       const at = this.spawnPoint(player);
-      enemies.push(new Thorn(kind, at.x, at.y, this.wave));
+      const thorn = new Thorn(kind, at.x, at.y, this.wave);
+      if (this.eliteAt.has(this.spawned)) {
+        thorn.elite = true;
+        thorn.hp = Math.round(thorn.hp * 3);
+        thorn.maxHp = thorn.hp;
+        thorn.radius = Math.round(thorn.radius * 1.4);
+        thorn.speed *= 1.15;
+        thorn.score *= 3;
+      }
+      enemies.push(thorn);
+      this.spawned += 1;
       this.spawnTimer = Math.max(0.25, WAVES.spawnGap - this.wave * 0.03);
     }
   }

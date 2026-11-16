@@ -25,10 +25,24 @@ export class Moth {
     this.xp = 0; // Magic Survival-style level progress
     this.level = 1;
     this.xpNeed = 5;
+    this.xpMul = 1;
     this.storm = 0; // lightning targets per strike, 0 = no storm
     this.stormTimer = 0;
     this.frost = 0; // frost nova level, 0 = no nova
     this.frostTimer = 0;
+    this.speed = PLAYER.speed;
+    this.bulletRadius = PLAYER.bulletRadius;
+    this.orbit = 0; // orbiting wisps, 0 = none
+    this.orbitAngle = 0;
+    this.meteor = 0; // meteors per rain, 0 = none
+    this.meteorTimer = 0;
+    this.chill = 0; // bolt slow seconds, 0 = no chill
+    this.explosive = 0; // bolt splash level, 0 = none
+    this.leech = 0; // health per kill
+    this.crit = 0; // crit chance, 0-1
+    this.regen = 0; // health per second
+    this.thorns = 0; // damage back to attackers
+    this.revive = false; // one free death per run
     this.pickupRadius = PLAYER.pickupRadius;
     this.comboWindow = PLAYER.comboWindow;
     this.dashCooldown = PLAYER.dashCooldown;
@@ -105,12 +119,13 @@ export class Thorn {
     this.x = x;
     this.y = y;
     this.radius = t.radius;
-    this.hp = Math.round(t.hp * (1 + (wave - 1) * 0.12));
+    this.hp = Math.round(t.hp * (1 + (wave - 1) * 0.22));
     this.maxHp = this.hp;
-    this.speed = t.speed * (1 + Math.min(0.5, (wave - 1) * 0.03));
+    this.speed = t.speed * (1 + Math.min(0.8, (wave - 1) * 0.05));
     this.score = t.score;
     this.touch = t.touch;
     this.color = t.color;
+    this.elite = false; // 3x HP, bigger, faster, richer — set by the director
     this.angle = Math.random() * Math.PI * 2;
     this.spin = (Math.random() - 0.5) * 2.4;
     this.state = 'chase';

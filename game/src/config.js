@@ -34,11 +34,11 @@ export const PLAYER = {
 };
 
 export const ENEMY_TYPES = {
-  thornling: { hp: 22, speed: 78, radius: 14, score: 50, touch: 9, color: '#ff7a6b' },
-  dart: { hp: 16, speed: 96, radius: 12, score: 80, touch: 8, color: '#ffb347' },
-  spitter: { hp: 30, speed: 58, radius: 15, score: 120, touch: 10, color: '#b78cff' },
-  splitter: { hp: 34, speed: 62, radius: 19, score: 140, touch: 12, color: '#ff6fd8' },
-  monarch: { hp: 950, speed: 46, radius: 48, score: 1500, touch: 20, color: '#ff4d6d' },
+  thornling: { hp: 26, speed: 86, radius: 14, score: 50, touch: 11, color: '#ff7a6b' },
+  dart: { hp: 20, speed: 104, radius: 12, score: 80, touch: 10, color: '#ffb347' },
+  spitter: { hp: 36, speed: 62, radius: 15, score: 120, touch: 12, color: '#b78cff' },
+  splitter: { hp: 40, speed: 68, radius: 19, score: 140, touch: 14, color: '#ff6fd8' },
+  monarch: { hp: 1100, speed: 50, radius: 48, score: 1500, touch: 20, color: '#ff4d6d' },
 };
 
 export const UPGRADES = [
@@ -103,6 +103,12 @@ export const UPGRADES = [
     apply: (p) => { p.bounce += 1; },
   },
   {
+    id: 'nova',
+    name: 'CORAL NOVA',
+    desc: 'Every few seconds a ring of bolts bursts out in all directions.',
+    apply: (p) => { p.nova = p.nova ? p.nova + 4 : 10; p.novaTimer = Math.min(p.novaTimer, 1.5); },
+  },
+  {
     id: 'storm',
     name: 'STORM CALL',
     desc: 'Every 3 seconds, lightning zaps the nearest thorns.',
@@ -114,11 +120,83 @@ export const UPGRADES = [
     desc: 'Every few seconds, a freezing wave slows nearby thorns.',
     apply: (p) => { p.frost += 1; p.frostTimer = Math.min(p.frostTimer, 1); },
   },
+  {
+    id: 'orbit',
+    name: 'ORBIT WISPS',
+    desc: 'Two glowing wisps orbit you, shredding thorns on contact.',
+    apply: (p) => { p.orbit = p.orbit ? p.orbit + 1 : 2; },
+  },
+  {
+    id: 'meteor',
+    name: 'METEOR RAIN',
+    desc: 'Every 4 seconds a meteor crashes down on a random thorn.',
+    apply: (p) => { p.meteor += 1; p.meteorTimer = Math.min(p.meteorTimer, 1); },
+  },
+  {
+    id: 'chill',
+    name: 'FROSTBITE BOLTS',
+    desc: 'Your bolts chill thorns, slowing them for a second.',
+    apply: (p) => { p.chill += 1; },
+  },
+  {
+    id: 'explosive',
+    name: 'EXPLOSIVE ROUNDS',
+    desc: 'Bolts explode on impact, splashing nearby thorns.',
+    apply: (p) => { p.explosive += 1; },
+  },
+  {
+    id: 'leech',
+    name: 'VAMPIRIC GLOW',
+    desc: 'Every kill mends 3 health.',
+    apply: (p) => { p.leech += 3; },
+  },
+  {
+    id: 'crit',
+    name: 'CRITICAL SPARKS',
+    desc: '+15% chance your bolts hit for double damage.',
+    apply: (p) => { p.crit += 0.15; },
+  },
+  {
+    id: 'swift',
+    name: 'SWIFT CURRENT',
+    desc: 'Move 25% faster through the reef.',
+    apply: (p) => { p.speed *= 1.25; },
+  },
+  {
+    id: 'regen',
+    name: 'REGENERATION',
+    desc: 'Regenerate 2 health every second.',
+    apply: (p) => { p.regen += 2; },
+  },
+  {
+    id: 'wide',
+    name: 'WIDE LANTERN',
+    desc: 'Your bolts grow bigger and hit a wider arc.',
+    apply: (p) => { p.bulletRadius += 4; },
+  },
+  {
+    id: 'wisdom',
+    name: 'OLD WISDOM',
+    desc: 'XP gems are worth 50% more.',
+    apply: (p) => { p.xpMul += 0.5; },
+  },
+  {
+    id: 'thornmail',
+    name: 'THORNMAIL',
+    desc: 'Attackers take 15 damage when they hit you.',
+    apply: (p) => { p.thorns += 15; },
+  },
+  {
+    id: 'revive',
+    name: 'SECOND WIND',
+    desc: 'Once per run, cheat death and rise with 50 health.',
+    apply: (p) => { if (p.revive) { p.maxHp += 30; p.hp = Math.min(p.maxHp, p.hp + 30); } else { p.revive = true; } },
+  },
 ];
 
 export const WAVES = {
-  baseCount: 10,
-  perWave: 4,
-  spawnGap: 0.6,
+  baseCount: 14,
+  perWave: 5,
+  spawnGap: 0.45,
   bossEvery: 5,
 };
